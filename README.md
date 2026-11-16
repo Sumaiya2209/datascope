@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DataScope
 
-## Getting Started
+DataScope is an enterprise data discovery and intelligence platform built with
+Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, Redux Toolkit, Drizzle
+ORM, and PostgreSQL.
 
-First, run the development server:
+## Requirements
 
-```bash
+- Node.js 22+ (Node.js 24 recommended)
+- npm
+- Docker Desktop for the local PostgreSQL database
+
+## Local development
+
+Run these commands from the project directory:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+npm install
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+docker compose up -d postgres
+npm run db:migrate
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Set `AUTH_SECRET` in `.env` to a generated secret before starting the app.
+Registration creates Viewer accounts; assign analyst/admin roles and dataset
+grants through controlled administrative workflows.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The seed command generates 100,000 demo records by default, split across the
+Customer Accounts and Business Partners datasets. Set a different count from 1
+to 1,000,000 with `npm run db:seed -- 250000`. Seeded users have no password
+credentials configured.
 
-## Learn More
+Authentication uses JWT sessions with the role copied into the session.
+Protected app paths are gated by `src/proxy.ts` (the Next.js 16 convention);
+server data and mutations
+must additionally call `requireRole()` or `requireDatasetAccess()` from
+`src/lib/auth/permissions.ts`.
 
-To learn more about Next.js, take a look at the following resources:
+## Records search API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`GET` and `POST /api/datasets/{id}/records` require an authenticated user with
+view access to the dataset. Both accept `search`, `conditions`, `sort`, `page`,
+and `pageSize`; for GET requests, `conditions` and `sort` are JSON-encoded query
+parameters. Pages are 1-based and `pageSize` is limited to 100. An empty search
+and filter set returns no records. Results include `records`, `total`, `page`,
+`pageSize`, and `hasMore`; totals are cached briefly by dataset and filter hash.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Example POST body:
 
-## Deploy on Vercel
+```json
+{
+  "search": "Taylor Reed",
+  "conditions": [
+    { "field": "status", "operator": "eq", "value": "Active" },
+    { "field": "revenue", "operator": "gte", "value": 2500 }
+  ],
+  "sort": [{ "field": "created_at", "direction": "desc" }],
+  "page": 1,
+  "pageSize": 25
+}
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Supported fields are `status`, `country`, `category`, `revenue`, `created_at`,
+`name`, and `email`. Operators are `eq`, `contains`, `gt`, `gte`, `lt`, `lte`,
+`between`, and `in`, subject to field type validation.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tests and checks
+
+```powershell
+npm run test
+npx playwright install chromium
+npm run test:e2e
+npm run lint
+npm run typecheck
+npm run format:check
+```
