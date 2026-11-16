@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { RequestProviders } from "@/app/request-providers";
+import { AppShell } from "@/components/layout/app-shell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
-          <RequestProviders>{children}</RequestProviders>
+          <RequestProviders>
+            <AppShell>{children}</AppShell>
+          </RequestProviders>
         </Suspense>
       </body>
     </html>

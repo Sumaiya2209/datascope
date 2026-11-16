@@ -7,6 +7,7 @@ export { proxy };
 
 export const config = {
   matcher: [
+    "/overview/:path*",
     "/dashboard/:path*",
     "/datasets/:path*",
     "/explorer/:path*",

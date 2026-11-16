@@ -20,9 +20,9 @@ test("login and registration pages are public", async ({ page }) => {
 test("protected pages redirect unauthenticated visitors to login", async ({
   page,
 }) => {
-  await page.goto("/dashboard");
+  await page.goto("/overview");
 
-  await expect(page).toHaveURL(/\/login\?callbackUrl=/);
+  await expect(page).toHaveURL(/\/login\?callbackUrl=.*overview/);
   await expect(
     page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();

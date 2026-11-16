@@ -42,6 +42,7 @@ export const apiErrorToastMiddleware: Middleware =
         toastAdded({
           title: "Request failed",
           description: getApiErrorMessage(action.payload),
+          tone: "error",
         }),
       );
     }

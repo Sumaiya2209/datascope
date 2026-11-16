@@ -1,7 +1,7 @@
-import "dotenv/config";
 import { createHash } from "node:crypto";
 import { faker } from "@faker-js/faker";
-import { count, eq } from "drizzle-orm";
+import { config } from "dotenv";
+import { count, eq, inArray } from "drizzle-orm";
 import {
   accessPermissions,
   datasetFields,
@@ -10,6 +10,17 @@ import {
   roles,
   users,
 } from "../src/lib/db/schema";
+
+config({ path: ".env.local", override: true });
+
+const databaseUrl =
+  process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error(
+    "DATABASE_URL_UNPOOLED or DATABASE_URL must be set in .env.local before seeding.",
+  );
+}
+process.env.DATABASE_URL = databaseUrl;
 
 const DEFAULT_RECORD_COUNT = 100_000;
 const MAX_RECORD_COUNT = 1_000_000;
@@ -193,31 +204,27 @@ async function seed(
   recordCount: number,
   db: typeof import("../src/lib/db/client").db,
 ) {
-  const roleIds = new Map<(typeof roleSeeds)[number]["slug"], string>();
-
-  for (const roleSeed of roleSeeds) {
-    const [role] = await db
-      .insert(roles)
-      .values({
+  await db
+    .insert(roles)
+    .values(
+      roleSeeds.map((roleSeed) => ({
         name: roleSeed.name,
         slug: roleSeed.slug,
         description: roleSeed.description,
-      })
-      .onConflictDoUpdate({
-        target: roles.slug,
-        set: {
-          name: roleSeed.name,
-          description: roleSeed.description,
-        },
-      })
-      .returning({ id: roles.id });
+      })),
+    )
+    .onConflictDoNothing({ target: roles.slug });
 
-    if (!role) {
-      throw new Error(`Failed to seed the "${roleSeed.slug}" role.`);
-    }
-
-    roleIds.set(roleSeed.slug, role.id);
-  }
+  const seededRoles = await db
+    .select({ id: roles.id, slug: roles.slug })
+    .from(roles)
+    .where(
+      inArray(
+        roles.slug,
+        roleSeeds.map((roleSeed) => roleSeed.slug),
+      ),
+    );
+  const roleIds = new Map(seededRoles.map((role) => [role.slug, role.id]));
 
   const adminRoleId = roleIds.get("admin");
   if (!adminRoleId) {

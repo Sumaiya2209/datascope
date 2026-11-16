@@ -20,6 +20,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Search } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   memo,
@@ -314,9 +315,16 @@ export function DataExplorer() {
   const selectedDatasetId = useAppSelector(
     (state) => state.dataset.selectedDatasetId,
   );
+  const role = useAppSelector((state) => state.auth.role);
   const draft = useAppSelector((state) => state.searchConfig.draft);
   const applied = useAppSelector((state) => state.searchConfig.applied);
   const density = useAppSelector((state) => state.uiPreferences.density);
+  const defaultPageSize = useAppSelector(
+    (state) => state.uiPreferences.defaultPageSize,
+  );
+  const defaultColumns = useAppSelector(
+    (state) => state.uiPreferences.defaultColumns,
+  );
   const savedVisibleColumns = useAppSelector((state) =>
     selectedDatasetId
       ? state.uiPreferences.visibleColumnsByDataset[selectedDatasetId]
@@ -338,6 +346,10 @@ export function DataExplorer() {
   const lastWrittenQueryRef = useRef<string | null>(null);
   const skipUrlWriteRef = useRef(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingViewColumnsRef = useRef<{
+    datasetId: string;
+    columns: string[];
+  } | null>(null);
   const isUrlHydrated = hydratedSearchParamsKey === searchParamsKey;
   const filtersAreValid = areConditionsValid(draft.conditions);
 
@@ -349,9 +361,11 @@ export function DataExplorer() {
     }
 
     skipUrlWriteRef.current = true;
-    const restoredDraft = parseSearchDraft(
-      new URLSearchParams(searchParamsKey),
-    );
+    const restoredParams = new URLSearchParams(searchParamsKey);
+    const restoredDraft = parseSearchDraft(restoredParams);
+    if (!restoredParams.has("pageSize")) {
+      restoredDraft.pageSize = defaultPageSize;
+    }
     const shouldApply =
       hasSearchCriteria(restoredDraft) &&
       areConditionsValid(restoredDraft.conditions);
@@ -364,7 +378,7 @@ export function DataExplorer() {
     );
     setSearchInput(restoredDraft.search);
     setHydratedSearchParamsKey(searchParamsKey);
-  }, [dispatch, searchParamsKey]);
+  }, [defaultPageSize, dispatch, searchParamsKey]);
 
   useEffect(() => {
     if (!isUrlHydrated) {
@@ -420,6 +434,25 @@ export function DataExplorer() {
     datasetDetail?.dataset.id === selectedDatasetId
       ? datasetDetail.dataset
       : undefined;
+
+  useEffect(() => {
+    const pending = pendingViewColumnsRef.current;
+    if (!pending || currentDataset?.id !== pending.datasetId) {
+      return;
+    }
+
+    const knownColumns = new Set(
+      currentDataset.fields.map((field) => field.name),
+    );
+    dispatch(
+      datasetVisibleColumnsSet({
+        datasetId: pending.datasetId,
+        columns: pending.columns.filter((column) => knownColumns.has(column)),
+      }),
+    );
+    pendingViewColumnsRef.current = null;
+  }, [currentDataset, dispatch]);
+
   const searchArgs = useMemo(
     () =>
       selectedDatasetId && isUrlHydrated && applied
@@ -478,22 +511,23 @@ export function DataExplorer() {
       Object.fromEntries(
         fields.map((field) => [
           field.name,
-          savedVisibleColumns === undefined ||
-            savedVisibleColumns.includes(field.name),
+          savedVisibleColumns === undefined
+            ? defaultColumns.includes(field.name)
+            : savedVisibleColumns.includes(field.name),
         ]),
       ),
-    [fields, savedVisibleColumns],
+    [defaultColumns, fields, savedVisibleColumns],
   );
   const visibleColumnNames = useMemo(
     () =>
       fields
-        .filter(
-          (field) =>
-            savedVisibleColumns === undefined ||
-            savedVisibleColumns.includes(field.name),
+        .filter((field) =>
+          savedVisibleColumns === undefined
+            ? defaultColumns.includes(field.name)
+            : savedVisibleColumns.includes(field.name),
         )
         .map((field) => field.name),
-    [fields, savedVisibleColumns],
+    [defaultColumns, fields, savedVisibleColumns],
   );
   const sorting = useMemo<SortingState>(
     () =>
@@ -700,12 +734,19 @@ export function DataExplorer() {
           toastAdded({
             title: "View could not be applied",
             description: "The saved search configuration is invalid.",
+            tone: "error",
           }),
         );
         return;
       }
 
       if (datasetId !== selectedDatasetId) {
+        if (configuration.visibleColumns) {
+          pendingViewColumnsRef.current = {
+            datasetId,
+            columns: configuration.visibleColumns,
+          };
+        }
         dispatch(datasetSelected(datasetId));
       }
       if (configuration.visibleColumns && datasetId === selectedDatasetId) {
@@ -801,6 +842,36 @@ export function DataExplorer() {
             </select>
           </label>
         </header>
+        <nav aria-label="Account navigation" className="flex flex-wrap gap-2">
+          <Link
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            href="/analytics"
+          >
+            Analytics
+          </Link>
+          <Link
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            href="/settings"
+          >
+            User settings
+          </Link>
+          {role === "admin" && (
+            <>
+              <Link
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+                href="/admin/datasets"
+              >
+                Manage datasets
+              </Link>
+              <Link
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+                href="/admin/users"
+              >
+                Manage users
+              </Link>
+            </>
+          )}
+        </nav>
 
         {datasetsError && (
           <p

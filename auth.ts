@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { roles, users } from "@/lib/db/schema";
 
 const DUMMY_PASSWORD_HASH =
-  "$2b$12$NPaJX6seI5SjocialgTGReSOcyDEw4izzFJpStu0USpRuGNdcFRmq";
+  "$2b$12$a8vOWqqrJ680gpB3gzpIA.lqy4dCLpJ2w.CaiXchmDFW/fJoAP8h.";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,

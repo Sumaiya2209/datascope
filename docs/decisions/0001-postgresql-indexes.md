@@ -1,4 +1,7 @@
-# PostgreSQL Index Strategy
+# ADR-0001: PostgreSQL index strategy
+
+- Status: Accepted
+- Date: 2026-11-16
 
 ## Problem
 
@@ -6,13 +9,13 @@ DataScope needs to filter and page large datasets, support full-text and partial
 text search, enforce uniqueness, and serve history and monitoring views without
 scanning every row.
 
-## Alternatives
+## Available Alternatives
 
 - Rely on primary-key indexes and sequential scans.
 - Add broad single-column indexes for each filter.
 - Use workload-specific B-tree indexes plus GIN indexes for text search.
 
-## Selected
+## Selected Approach
 
 Use PostgreSQL B-tree indexes for equality, range, ordering, joins, and
 uniqueness, and GIN indexes for full-text and trigram search. Dataset-record
@@ -65,7 +68,7 @@ before creating its trigram operator-class index.
   `query_logs_dataset_created_at_idx` scopes those reports to a dataset;
   `query_logs_duration_ms_idx` supports slow-query threshold analysis.
 
-## Reason
+## Reason for Selection
 
 These indexes match the expected access patterns while keeping the main record
 search on server-side SQL. Leading with `dataset_id` narrows scans before
@@ -73,7 +76,7 @@ applying a record-level filter. The generated full-text vector avoids
 recomputing tokenization per query; trigram indexing covers substring matching,
 which full-text token search does not.
 
-## Pros
+## Advantages
 
 - Common dataset filters, ranges, and chronological pages can use index scans.
 - Full-text and partial matching have purpose-built PostgreSQL indexes.
@@ -81,7 +84,7 @@ which full-text token search does not.
 - The database remains the source of truth; no full record set is loaded into
   the application to search.
 
-## Cons
+## Disadvantages
 
 - Each index consumes disk and adds write cost, especially the generated
   tsvector and GIN indexes.
@@ -90,14 +93,14 @@ which full-text token search does not.
 - Trigram search is less effective for very short inputs and can be costly for
   broad, low-selectivity patterns.
 
-## Performance
+## Performance Implications
 
 The record indexes aim to reduce work before pagination and keep filter,
 ordering, and text-search operations in PostgreSQL. Indexes improve eligible
 queries, not every query; validate with `EXPLAIN (ANALYZE, BUFFERS)` against
 representative data before claiming latency improvements.
 
-## Future limits
+## Future Limitations
 
 Revisit index order and coverage using query logs and representative query
 plans. Very high write volume may require dropping or rebuilding rarely used

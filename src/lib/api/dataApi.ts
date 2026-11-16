@@ -1,6 +1,8 @@
 import { baseApi } from "./baseApi";
 import type {
   AnalyticsOverview,
+  AdminDataset,
+  AdminUser,
   DatasetDetail,
   DatasetRecord,
   DatasetSummary,
@@ -12,6 +14,7 @@ import type {
   SavedView,
   SavedViewInput,
   SearchHistoryEntry,
+  UserPreferences,
 } from "./types";
 
 type DatasetListResponse = {
@@ -36,6 +39,27 @@ type SavedViewResponse = {
 
 type SearchHistoryResponse = {
   history: SearchHistoryEntry[];
+};
+
+type AdminDatasetListResponse = {
+  datasets: AdminDataset[];
+};
+
+type AdminDatasetResponse = {
+  dataset: AdminDataset;
+  permissions?: AdminDataset["permissions"];
+};
+
+type AdminUserListResponse = {
+  users: AdminUser[];
+};
+
+type AdminUserResponse = {
+  user: AdminUser;
+};
+
+type UserPreferencesResponse = {
+  preferences: UserPreferences;
 };
 
 type DatasetQueryArg = {
@@ -77,6 +101,124 @@ const injectedApi = baseApi.injectEndpoints({
         })) ?? []),
       ],
       keepUnusedDataFor: 300,
+    }),
+
+    getAdminDatasets: build.query<AdminDatasetListResponse, void>({
+      query: () => "/admin/datasets",
+      providesTags: (result) => [
+        { type: "Dataset", id: "ADMIN-LIST" },
+        ...(result?.datasets.map(({ id }) => ({
+          type: "Dataset" as const,
+          id,
+        })) ?? []),
+      ],
+      keepUnusedDataFor: 60,
+    }),
+
+    createAdminDataset: build.mutation<
+      AdminDatasetResponse,
+      Pick<AdminDataset, "name"> &
+        Partial<
+          Pick<AdminDataset, "description" | "category" | "dataSource">
+        > & {
+          permissions: AdminDataset["permissions"];
+        }
+    >({
+      query: (body) => ({
+        url: "/admin/datasets",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [
+        { type: "Dataset", id: "LIST" },
+        { type: "Dataset", id: "ADMIN-LIST" },
+      ],
+    }),
+
+    updateAdminDataset: build.mutation<
+      AdminDatasetResponse,
+      {
+        datasetId: string;
+        changes: Partial<
+          Pick<AdminDataset, "name" | "description" | "category" | "dataSource">
+        > & {
+          permissions?: AdminDataset["permissions"];
+        };
+      }
+    >({
+      query: ({ datasetId, changes }) => ({
+        url: `/admin/datasets/${encoded(datasetId)}`,
+        method: "PATCH",
+        body: changes,
+      }),
+      invalidatesTags: (_result, _error, { datasetId }) => [
+        { type: "Dataset", id: "LIST" },
+        { type: "Dataset", id: "ADMIN-LIST" },
+        { type: "Dataset", id: datasetId },
+        { type: "Analytics", id: datasetId },
+        { type: "SavedView", id: listTagId(datasetId) },
+      ],
+    }),
+
+    deleteAdminDataset: build.mutation<void, { datasetId: string }>({
+      query: ({ datasetId }) => ({
+        url: `/admin/datasets/${encoded(datasetId)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { datasetId }) => [
+        { type: "Dataset", id: "LIST" },
+        { type: "Dataset", id: "ADMIN-LIST" },
+        { type: "Dataset", id: datasetId },
+        { type: "Record", id: listTagId(datasetId) },
+        { type: "Analytics", id: datasetId },
+        { type: "SavedView", id: listTagId(datasetId) },
+      ],
+    }),
+
+    getAdminUsers: build.query<AdminUserListResponse, void>({
+      query: () => "/admin/users",
+      providesTags: (result) => [
+        { type: "AdminUser", id: "LIST" },
+        ...(result?.users.map(({ id }) => ({
+          type: "AdminUser" as const,
+          id,
+        })) ?? []),
+      ],
+      keepUnusedDataFor: 60,
+    }),
+
+    updateAdminUserRole: build.mutation<
+      AdminUserResponse,
+      { userId: string; role: AdminUser["role"] }
+    >({
+      query: ({ userId, role }) => ({
+        url: `/admin/users/${encoded(userId)}`,
+        method: "PATCH",
+        body: { role },
+      }),
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: "AdminUser", id: "LIST" },
+        { type: "AdminUser", id: userId },
+        { type: "Dataset", id: "LIST" },
+      ],
+    }),
+
+    getUserPreferences: build.query<UserPreferencesResponse, void>({
+      query: () => "/user/preferences",
+      providesTags: [{ type: "UserPreference", id: "CURRENT" }],
+      keepUnusedDataFor: 300,
+    }),
+
+    updateUserPreferences: build.mutation<
+      UserPreferencesResponse,
+      UserPreferences
+    >({
+      query: (body) => ({
+        url: "/user/preferences",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: [{ type: "UserPreference", id: "CURRENT" }],
     }),
 
     getDataset: build.query<DatasetResponse, DatasetQueryArg>({
@@ -251,6 +393,14 @@ const injectedApi = baseApi.injectEndpoints({
 
 export const {
   useGetDatasetsQuery,
+  useGetAdminDatasetsQuery,
+  useCreateAdminDatasetMutation,
+  useUpdateAdminDatasetMutation,
+  useDeleteAdminDatasetMutation,
+  useGetAdminUsersQuery,
+  useUpdateAdminUserRoleMutation,
+  useGetUserPreferencesQuery,
+  useUpdateUserPreferencesMutation,
   useGetDatasetQuery,
   useSearchRecordsQuery,
   useGetRecordQuery,

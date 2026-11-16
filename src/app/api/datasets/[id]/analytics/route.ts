@@ -158,7 +158,8 @@ async function loadAnalytics(datasetId: string): Promise<AnalyticsOverview> {
         uses: count(),
       })
       .from(searchHistory)
-      .crossJoin(sql`
+      .crossJoin(
+        sql`
         jsonb_array_elements(
           CASE
             WHEN jsonb_typeof(${searchHistory.query}->'conditions') = 'array'
@@ -166,7 +167,8 @@ async function loadAnalytics(datasetId: string): Promise<AnalyticsOverview> {
             ELSE '[]'::jsonb
           END
         ) AS filter_item(value)
-      `)
+      `,
+      )
       .where(
         and(
           eq(searchHistory.datasetId, datasetId),

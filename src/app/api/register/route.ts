@@ -8,6 +8,32 @@ import { roles, users } from "@/lib/db/schema";
 
 const PASSWORD_HASH_ROUNDS = 12;
 
+function databaseErrorResponse(error: unknown) {
+  const code = error instanceof PostgresError ? error.code : undefined;
+  console.error("Registration database operation failed.", {
+    errorType: error instanceof Error ? error.name : "UnknownError",
+    code,
+  });
+
+  if (code === "42P01") {
+    return NextResponse.json(
+      {
+        error:
+          "The database schema is not initialized. Run npm run db:migrate and npm run db:seed, then try again.",
+      },
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      error:
+        "Registration is temporarily unavailable because the database could not be reached. Please try again later.",
+    },
+    { status: 503 },
+  );
+}
+
 export async function POST(request: Request) {
   let body: unknown;
 
@@ -35,15 +61,24 @@ export async function POST(request: Request) {
     );
   }
 
-  const [viewerRole] = await db
-    .select({ id: roles.id })
-    .from(roles)
-    .where(eq(roles.slug, "viewer"))
-    .limit(1);
+  let viewerRole: { id: string } | undefined;
+  try {
+    [viewerRole] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.slug, "viewer"))
+      .limit(1);
+  } catch (error) {
+    return databaseErrorResponse(error);
+  }
 
   if (!viewerRole) {
-    throw new Error(
-      'The default "viewer" role is missing. Run the database seed first.',
+    return NextResponse.json(
+      {
+        error:
+          'The "viewer" role is not configured. Run npm run db:seed, then try again.',
+      },
+      { status: 503 },
     );
   }
 
@@ -87,6 +122,6 @@ export async function POST(request: Request) {
       );
     }
 
-    throw error;
+    return databaseErrorResponse(error);
   }
 }

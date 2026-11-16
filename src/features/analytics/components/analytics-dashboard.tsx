@@ -192,7 +192,10 @@ function AnalyticsCharts({ analytics }: { analytics: AnalyticsOverview }) {
                   width={48}
                 />
                 <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Records"]}
+                  formatter={(value) => [
+                    formatNumber(Number(value)),
+                    "Records",
+                  ]}
                 />
                 <Line
                   activeDot={{ r: 5 }}
@@ -232,7 +235,10 @@ function AnalyticsCharts({ analytics }: { analytics: AnalyticsOverview }) {
                   width={40}
                 />
                 <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Searches"]}
+                  formatter={(value) => [
+                    formatNumber(Number(value)),
+                    "Searches",
+                  ]}
                 />
                 <Line
                   activeDot={{ r: 5 }}
@@ -275,7 +281,10 @@ function AnalyticsCharts({ analytics }: { analytics: AnalyticsOverview }) {
                   width={105}
                 />
                 <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Records"]}
+                  formatter={(value) => [
+                    formatNumber(Number(value)),
+                    "Records",
+                  ]}
                 />
                 <Bar
                   dataKey="count"
@@ -352,7 +361,10 @@ function AnalyticsCharts({ analytics }: { analytics: AnalyticsOverview }) {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Records"]}
+                  formatter={(value) => [
+                    formatNumber(Number(value)),
+                    "Records",
+                  ]}
                 />
                 <Legend
                   formatter={(value) => (
@@ -388,7 +400,10 @@ function AnalyticsCharts({ analytics }: { analytics: AnalyticsOverview }) {
                   width={45}
                 />
                 <Tooltip
-                  formatter={(value) => [formatNumber(Number(value)), "Records"]}
+                  formatter={(value) => [
+                    formatNumber(Number(value)),
+                    "Records",
+                  ]}
                 />
                 <Bar
                   dataKey="count"

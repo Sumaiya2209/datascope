@@ -4,6 +4,7 @@ type ToastMessage = {
   id: string;
   title: string;
   description: string;
+  tone: "success" | "error" | "info";
 };
 
 const MAX_TOASTS = 4;
@@ -19,8 +20,18 @@ const toastSlice = createSlice({
           state.shift();
         }
       },
-      prepare(message: Omit<ToastMessage, "id">) {
-        return { payload: { ...message, id: nanoid() } };
+      prepare(
+        message: Omit<ToastMessage, "id" | "tone"> & {
+          tone?: ToastMessage["tone"];
+        },
+      ) {
+        return {
+          payload: {
+            ...message,
+            tone: message.tone ?? "success",
+            id: nanoid(),
+          },
+        };
       },
     },
     toastDismissed(state, action: PayloadAction<string>) {

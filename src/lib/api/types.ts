@@ -1,4 +1,5 @@
 import type { SearchRequest } from "@/features/search/types";
+import type { AppRole, DatasetPermission } from "@/lib/auth/roles";
 
 export type DatasetSummary = {
   id: string;
@@ -121,6 +122,30 @@ export type AnalyticsOverview = {
     operator: string;
     uses: number;
   }>;
+};
+
+export type AdminDataset = DatasetSummary & {
+  dataSource: string | null;
+  createdAt: string;
+  updatedAt: string;
+  permissions: {
+    analyst: Exclude<DatasetPermission, "manage"> | null;
+    viewer: "view" | null;
+  };
+};
+
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: AppRole;
+  createdAt: string;
+};
+
+export type UserPreferences = {
+  theme: "light" | "dark" | "system";
+  defaultPageSize: 25 | 50 | 100;
+  defaultColumns: string[];
 };
 
 export type RecordSearchArgs = SearchRequest & {

@@ -74,4 +74,41 @@ describe("search request query builder", () => {
       expect(searchRequestSchema.safeParse(input).success).toBe(false);
     }
   });
+
+  it("validates date ranges, duplicate sort fields, and large offsets", () => {
+    expect(
+      searchRequestSchema.safeParse({
+        conditions: [
+          {
+            field: "created_at",
+            operator: "between",
+            value: ["not-a-date", "2025-01-01"],
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      searchRequestSchema.safeParse({
+        sort: [
+          { field: "name", direction: "asc" },
+          { field: "name", direction: "desc" },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      searchRequestSchema.safeParse({
+        page: Number.MAX_SAFE_INTEGER,
+        pageSize: 100,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("adds a deterministic id tie-breaker to sorting", () => {
+    const config = searchRequestSchema.parse({
+      sort: [{ field: "revenue", direction: "desc" }],
+    });
+    const orderBy = dialect.sqlToQuery(sql.join(buildOrderBy(config), sql`, `));
+
+    expect(orderBy.sql.toLowerCase()).toContain('"dataset_records"."id" asc');
+  });
 });

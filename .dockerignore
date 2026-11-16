@@ -1,0 +1,15 @@
+.git
+.github
+.next
+.next-perf
+.vercel
+node_modules
+coverage
+playwright-report
+test-results
+.env
+.env.*
+!.env.example
+.neon
+*.tsbuildinfo
+npm-debug.log*

@@ -1,4 +1,20 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-datascope}:${POSTGRES_PASSWORD:-datascope}@postgres:5432/${POSTGRES_DB:-datascope}
+      AUTH_SECRET: ${AUTH_SECRET:-local-compose-only-secret-change-before-deploy}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -20,5 +36,41 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-test:
+    image: postgres:16-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: datascope_test
+      POSTGRES_USER: datascope_test
+      POSTGRES_PASSWORD: datascope_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datascope_test -d datascope_test"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+
+  postgres-perf:
+    image: postgres:16-alpine
+    profiles: ["performance"]
+    environment:
+      POSTGRES_DB: datascope_perf
+      POSTGRES_USER: datascope_perf
+      POSTGRES_PASSWORD: datascope_perf
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_perf_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datascope_perf -d datascope_perf"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+
 volumes:
   postgres_data:
+  postgres_test_data:
+  postgres_perf_data:

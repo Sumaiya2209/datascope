@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export function LoginForm() {
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered") === "1";
-  const redirectTo = searchParams.get("callbackUrl") ?? "/";
+  const redirectTo = searchParams.get("callbackUrl") ?? "/overview";
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
