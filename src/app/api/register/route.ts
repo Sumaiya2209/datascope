@@ -8,8 +8,16 @@ import { roles, users } from "@/lib/db/schema";
 
 const PASSWORD_HASH_ROUNDS = 12;
 
+function getDatabaseErrorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+
+  return typeof error.code === "string" ? error.code : undefined;
+}
+
 function databaseErrorResponse(error: unknown) {
-  const code = error instanceof PostgresError ? error.code : undefined;
+  const code = getDatabaseErrorCode(error);
   console.error("Registration database operation failed.", {
     errorType: error instanceof Error ? error.name : "UnknownError",
     code,

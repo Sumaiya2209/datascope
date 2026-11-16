@@ -55,4 +55,19 @@ describe("POST /api/register", () => {
     expect(logError).toHaveBeenCalledOnce();
     logError.mockRestore();
   });
+
+  it("explains when the database schema has not been migrated", async () => {
+    database.limit.mockRejectedValue(
+      Object.assign(new Error("relation missing"), { code: "42P01" }),
+    );
+    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await POST(registrationRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("db:migrate"),
+    });
+    logError.mockRestore();
+  });
 });
