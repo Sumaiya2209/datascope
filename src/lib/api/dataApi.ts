@@ -51,7 +51,9 @@ type SavedViewQueryArg = DatasetQueryArg & {
 };
 
 type UpdateSavedViewArg = SavedViewQueryArg & {
-  changes: Partial<SavedViewInput>;
+  changes: Omit<Partial<SavedViewInput>, "description"> & {
+    description?: string | null;
+  };
 };
 
 type UpdateRecordArg = RecordQueryArg & {
@@ -91,6 +93,19 @@ const injectedApi = baseApi.injectEndpoints({
         method: "POST",
         body: search,
       }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(
+            baseApi.util.invalidateTags([
+              { type: "History", id: "SEARCH-HISTORY" },
+              { type: "Analytics", id: arg.datasetId },
+            ]),
+          );
+        } catch (error) {
+          console.error("Search history cache refresh failed.", error);
+        }
+      },
       providesTags: (result, _error, { datasetId }) => [
         { type: "Record", id: listTagId(datasetId) },
         ...(result?.records.map(({ id }) => ({
@@ -172,8 +187,9 @@ const injectedApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: (_result, _error, { datasetId }) => [
+      invalidatesTags: (result, _error, { datasetId }) => [
         { type: "SavedView", id: listTagId(datasetId) },
+        ...(result ? [{ type: "SavedView" as const, id: result.view.id }] : []),
       ],
     }),
 
@@ -200,17 +216,12 @@ const injectedApi = baseApi.injectEndpoints({
       ],
     }),
 
-    getSearchHistory: build.query<
-      SearchHistoryResponse,
-      DatasetQueryArg & { limit?: number }
-    >({
-      query: ({ datasetId, limit }) => ({
-        url: `/datasets/${encoded(datasetId)}/history`,
+    getSearchHistory: build.query<SearchHistoryResponse, { limit?: number }>({
+      query: ({ limit }) => ({
+        url: "/search-history",
         params: limit === undefined ? undefined : { limit },
       }),
-      providesTags: (_result, _error, { datasetId }) => [
-        { type: "History", id: datasetId },
-      ],
+      providesTags: () => [{ type: "History", id: "SEARCH-HISTORY" }],
       keepUnusedDataFor: 60,
     }),
 
@@ -233,7 +244,7 @@ const injectedApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, { datasetId }) => [
         { type: "Analytics", id: datasetId },
       ],
-      keepUnusedDataFor: 30,
+      keepUnusedDataFor: 60,
     }),
   }),
 });

@@ -1,4 +1,4 @@
-import { count } from "drizzle-orm";
+import { count, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "../../../../../../auth";
@@ -7,7 +7,12 @@ import {
   requireDatasetAccess,
 } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
-import { datasetRecords, queryLogs } from "@/lib/db/schema";
+import {
+  datasetRecords,
+  queryLogs,
+  searchHistory,
+  users,
+} from "@/lib/db/schema";
 import {
   buildOrderBy,
   buildQuery,
@@ -53,6 +58,39 @@ async function writeQueryLog(
     rowsReturned,
     succeeded,
     errorCode: succeeded ? null : "QUERY_FAILED",
+  });
+}
+
+async function saveSearchHistory(
+  userId: string,
+  datasetId: string,
+  config: z.infer<typeof searchRequestSchema>,
+  resultCount: number,
+  durationMs: number,
+) {
+  await db.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`SELECT ${users.id} FROM ${users} WHERE ${users.id} = ${userId} FOR UPDATE`,
+    );
+    await transaction.insert(searchHistory).values({
+      userId,
+      datasetId,
+      query: { ...config },
+      resultCount,
+      durationMs,
+    });
+
+    await transaction.execute(sql`
+      DELETE FROM ${searchHistory}
+      WHERE ${searchHistory.userId} = ${userId}
+        AND ${searchHistory.id} NOT IN (
+          SELECT ${searchHistory.id}
+          FROM ${searchHistory}
+          WHERE ${searchHistory.userId} = ${userId}
+          ORDER BY ${searchHistory.executedAt} DESC, ${searchHistory.id} DESC
+          LIMIT 50
+        )
+    `);
   });
 }
 
@@ -241,6 +279,13 @@ async function searchRecords(
     const hasMore = selectedRecords.length > config.pageSize;
     const records = selectedRecords.slice(0, config.pageSize);
 
+    await saveSearchHistory(
+      userId,
+      parsedDatasetId.data,
+      config,
+      total,
+      durationSince(startedAt),
+    );
     await writeQueryLog(
       userId,
       parsedDatasetId.data,

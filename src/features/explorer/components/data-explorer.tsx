@@ -49,6 +49,7 @@ import {
   type SearchSort,
 } from "@/features/search/types";
 import { datasetVisibleColumnsSet } from "@/features/settings/uiPreferencesSlice";
+import { SavedViewsPanel } from "@/features/saved-views/components/saved-views-panel";
 import {
   RecordDetailDrawer,
   ViewRecordButton,
@@ -63,8 +64,10 @@ import type {
   DatasetField,
   DatasetRecord,
   DatasetSummary,
+  SavedViewConfiguration,
 } from "@/lib/api/types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { toastAdded } from "@/store/toastSlice";
 import { FilterBuilder } from "./filter-builder";
 
 const EMPTY_RECORDS: DatasetRecord[] = [];
@@ -481,6 +484,17 @@ export function DataExplorer() {
       ),
     [fields, savedVisibleColumns],
   );
+  const visibleColumnNames = useMemo(
+    () =>
+      fields
+        .filter(
+          (field) =>
+            savedVisibleColumns === undefined ||
+            savedVisibleColumns.includes(field.name),
+        )
+        .map((field) => field.name),
+    [fields, savedVisibleColumns],
+  );
   const sorting = useMemo<SortingState>(
     () =>
       (applied?.sort ?? draft.sort).map(({ field, direction }) => ({
@@ -669,6 +683,67 @@ export function DataExplorer() {
     dispatch(datasetSelected(datasetId || null));
   }
 
+  const applySavedConfiguration = useCallback(
+    (datasetId: string, configuration: SavedViewConfiguration) => {
+      const restoredDraft = parseSearchDraft(
+        serializeSearchDraft({
+          search: configuration.search ?? "",
+          conditions: configuration.conditions ?? [],
+          sort: configuration.sort ?? [],
+          page: configuration.page ?? 1,
+          pageSize: configuration.pageSize ?? 25,
+        }),
+      );
+
+      if (!areConditionsValid(restoredDraft.conditions)) {
+        dispatch(
+          toastAdded({
+            title: "View could not be applied",
+            description: "The saved search configuration is invalid.",
+          }),
+        );
+        return;
+      }
+
+      if (datasetId !== selectedDatasetId) {
+        dispatch(datasetSelected(datasetId));
+      }
+      if (configuration.visibleColumns && datasetId === selectedDatasetId) {
+        const knownColumns = new Set(fields.map((field) => field.name));
+        dispatch(
+          datasetVisibleColumnsSet({
+            datasetId,
+            columns: configuration.visibleColumns.filter((column) =>
+              knownColumns.has(column),
+            ),
+          }),
+        );
+      }
+      dispatch(
+        searchConfigRestored({
+          draft: restoredDraft,
+          apply:
+            hasSearchCriteria(restoredDraft) &&
+            areConditionsValid(restoredDraft.conditions),
+        }),
+      );
+      setSearchInput(restoredDraft.search);
+
+      const nextQuery = serializeSearchDraft(restoredDraft).toString();
+      if (nextQuery !== searchParamsKey) {
+        lastWrittenQueryRef.current = nextQuery;
+        skipUrlWriteRef.current = false;
+        setHydratedSearchParamsKey(null);
+        router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+          scroll: false,
+        });
+      } else {
+        setHydratedSearchParamsKey(searchParamsKey);
+      }
+    },
+    [dispatch, fields, pathname, router, searchParamsKey, selectedDatasetId],
+  );
+
   function submitJumpToPage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const page = Number(new FormData(event.currentTarget).get("page"));
@@ -797,6 +872,15 @@ export function DataExplorer() {
             )}
           </div>
         </section>
+
+        {selectedDatasetId && (
+          <SavedViewsPanel
+            datasetId={selectedDatasetId}
+            draft={draft}
+            onApply={applySavedConfiguration}
+            visibleColumns={visibleColumnNames}
+          />
+        )}
 
         {searchError && (
           <p

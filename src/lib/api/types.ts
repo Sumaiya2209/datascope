@@ -77,24 +77,32 @@ export type RecordHistoryResponse = {
 export type SavedView = {
   id: string;
   datasetId: string;
+  ownerId: string;
+  ownerName: string;
   name: string;
   description: string | null;
-  configuration: Partial<SearchRequest>;
+  configuration: SavedViewConfiguration;
   isShared: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
+export type SavedViewConfiguration = Partial<SearchRequest> & {
+  visibleColumns?: string[];
+};
+
 export type SavedViewInput = {
   name: string;
   description?: string;
-  configuration: Partial<SearchRequest>;
+  configuration: SavedViewConfiguration;
   isShared?: boolean;
 };
 
 export type SearchHistoryEntry = {
   id: string;
-  query: Record<string, unknown>;
+  datasetId: string;
+  datasetName: string;
+  query: SearchRequest;
   resultCount: number;
   durationMs: number;
   executedAt: string;
@@ -106,6 +114,13 @@ export type AnalyticsOverview = {
   statusBreakdown: Array<{ status: string; count: number }>;
   countryBreakdown: Array<{ country: string; count: number }>;
   categoryBreakdown: Array<{ category: string; count: number }>;
+  monthlyGrowth: Array<{ month: string; count: number }>;
+  searchActivity: Array<{ date: string; searches: number }>;
+  mostUsedFilters: Array<{
+    field: string;
+    operator: string;
+    uses: number;
+  }>;
 };
 
 export type RecordSearchArgs = SearchRequest & {
